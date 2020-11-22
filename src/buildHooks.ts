@@ -69,8 +69,8 @@ export type PrefetchOptions =
       ifOlderThan: false | number;
     };
 
-const hasTheForce = (options: any): options is { force: boolean } => options?.force;
-const hasMaxAge = (options: any): options is { ifOlderThan: false | number } => options?.ifOlderThan;
+const hasTheForce = (options: any): options is { force: boolean } => 'force' in options;
+const hasMaxAge = (options: any): options is { ifOlderThan: false | number } => 'ifOlderThan' in options;
 
 export function buildHooks<Definitions extends EndpointDefinitions>({
   querySelectors,

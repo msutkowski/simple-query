@@ -74,11 +74,13 @@ export function buildHooks<Definitions extends EndpointDefinitions>({
   queryActions,
   mutationSelectors,
   mutationActions,
+  thunks,
 }: {
   querySelectors: QueryResultSelectors<Definitions, any>;
   queryActions: QueryActions<Definitions>;
   mutationSelectors: MutationResultSelectors<Definitions, any>;
   mutationActions: MutationActions<Definitions>;
+  thunks: { prefetchThunk: any };
 }) {
   return { buildQueryHook, buildMutationHook, usePrefetch };
 
@@ -90,8 +92,8 @@ export function buildHooks<Definitions extends EndpointDefinitions>({
     const stableDefaultOptions = useShallowStableValue(defaultOptions);
 
     return useCallback(
-      (arg: any, options: PrefetchOptions = { force: false, ifOlderThan: false }) =>
-        dispatch(prefetchThunk(endpointName, arg, { ...stableDefaultOptions, ...options })),
+      (arg: any, options?: PrefetchOptions) =>
+        dispatch(thunks.prefetchThunk(endpointName, arg, { ...stableDefaultOptions, ...options })),
       [endpointName, dispatch, stableDefaultOptions]
     );
   }

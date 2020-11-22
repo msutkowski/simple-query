@@ -1,9 +1,11 @@
+import { Api } from './';
 import { AnyAction, createAsyncThunk, ThunkAction, ThunkDispatch } from '@reduxjs/toolkit';
 import { InternalRootState, QueryKeys, QuerySubstateIdentifier } from './apiState';
-import { QueryActions, StartQueryActionCreatorOptions } from './buildActionMaps';
+
+import { StartQueryActionCreatorOptions } from './buildActionMaps';
 import { PrefetchOptions } from './buildHooks';
-import { QueryResultSelectors } from './buildSelectors';
 import { EndpointDefinitions } from './endpointDefinitions';
+import { BaseQueryArg } from './tsHelpers';
 
 export interface QueryThunkArg<InternalQueryArgs> extends QuerySubstateIdentifier, StartQueryActionCreatorOptions {
   originalArgs: unknown;
@@ -34,19 +36,23 @@ function defaultTransformResponse(baseQueryReturnValue: unknown) {
   return baseQueryReturnValue;
 }
 
-export function buildThunks<InternalQueryArgs, ReducerPath extends string, Definitions extends EndpointDefinitions>({
+export function buildThunks<
+  BaseQuery extends (args: any, api: QueryApi) => any,
+  ReducerPath extends string,
+  Definitions extends EndpointDefinitions
+>({
   reducerPath,
   baseQuery,
   endpointDefinitions,
-  queryActions,
-  querySelectors,
+  api,
 }: {
-  baseQuery(args: InternalQueryArgs, api: QueryApi): any;
+  baseQuery: BaseQuery;
   reducerPath: ReducerPath;
   endpointDefinitions: Definitions;
-  queryActions: QueryActions<Definitions>;
-  querySelectors: QueryResultSelectors<Definitions, any>;
+  api: Api<BaseQuery, Definitions, ReducerPath, string>;
 }) {
+  type InternalQueryArgs = BaseQueryArg<BaseQuery>;
+
   const queryThunk = createAsyncThunk<
     ThunkResult,
     QueryThunkArg<InternalQueryArgs>,
@@ -88,16 +94,12 @@ export function buildThunks<InternalQueryArgs, ReducerPath extends string, Defin
     endpointName: EndpointName,
     arg: any,
     options: PrefetchOptions
-  ): ThunkAction<void, any, any, AnyAction> => (
-    dispatch: ThunkDispatch<any, any, AnyAction>,
-    getState: () => InternalRootState<ReducerPath>
-  ) => {
+  ): ThunkAction<void, any, any, AnyAction> => (dispatch: ThunkDispatch<any, any, any>, getState: () => any) => {
     const force = hasTheForce(options) && options.force;
     const maxAge = hasMaxAge(options) && options.ifOlderThan;
 
-    const queryAction = (force: boolean = true) => queryActions[endpointName](arg, { forceRefetch: force });
-
-    const latestStateValue = querySelectors[endpointName](arg)(getState());
+    const queryAction = (force: boolean = true) => api.actions[endpointName](arg, { forceRefetch: force });
+    const latestStateValue = api.selectors[endpointName](arg)(getState());
 
     if (force) {
       dispatch(queryAction());

@@ -70,7 +70,15 @@ export function createApi<
     return entity;
   };
 
-  const { queryThunk, mutationThunk } = buildThunks({ baseQuery, reducerPath, endpointDefinitions });
+  const { queryThunk, mutationThunk, prefetchThunk } = buildThunks({
+    baseQuery,
+    reducerPath,
+    endpointDefinitions,
+    querySelectors: api.selectors as any,
+    queryActions: api.actions as any,
+  });
+
+  console.log('pass lint', prefetchThunk);
 
   const { reducer, actions: sliceActions } = buildSlice({
     endpointDefinitions,

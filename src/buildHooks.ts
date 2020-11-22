@@ -1,6 +1,6 @@
 import { AnyAction, ThunkDispatch } from '@reduxjs/toolkit';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useDispatch, useSelector, batch, useStore } from 'react-redux';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDispatch, useSelector, batch } from 'react-redux';
 import {
   MutationSubState,
   QueryStatus,
@@ -69,9 +69,6 @@ export type PrefetchOptions =
       ifOlderThan: false | number;
     };
 
-const hasTheForce = (options: any): options is { force: boolean } => 'force' in options;
-const hasMaxAge = (options: any): options is { ifOlderThan: false | number } => 'ifOlderThan' in options;
-
 export function buildHooks<Definitions extends EndpointDefinitions>({
   querySelectors,
   queryActions,
@@ -87,45 +84,15 @@ export function buildHooks<Definitions extends EndpointDefinitions>({
 
   function usePrefetch<EndpointName extends QueryKeys<Definitions>>(
     endpointName: EndpointName,
-    options?: PrefetchOptions
+    defaultOptions?: PrefetchOptions
   ) {
     const dispatch = useDispatch<ThunkDispatch<any, any, AnyAction>>();
-    const store = useStore();
-    const latestStateRef = useRef(store.getState());
-
-    useLayoutEffect(() => {
-      return store.subscribe(() => {
-        latestStateRef.current = store.getState();
-      });
-    }, [store]);
+    const stableDefaultOptions = useShallowStableValue(defaultOptions);
 
     return useCallback(
-      (arg: any, opts: PrefetchOptions = { force: false, ifOlderThan: false }) => {
-        const force = hasTheForce(opts) ? opts.force : hasTheForce(options) ? options.force : false;
-        const maxAge = hasMaxAge(opts) ? opts.ifOlderThan : hasMaxAge(options) ? options.ifOlderThan : false;
-
-        const queryAction = (force: boolean = true) => queryActions[endpointName](arg, { forceRefetch: force });
-
-        const latestStateValue = querySelectors[endpointName](arg)(latestStateRef.current);
-
-        if (force) {
-          dispatch(queryAction());
-        } else if (maxAge) {
-          const lastFulfilledTs = latestStateValue?.fulfilledTimeStamp;
-          if (!lastFulfilledTs) {
-            dispatch(queryAction());
-            return;
-          }
-          const shouldRetrigger = (Number(new Date()) - Number(new Date(lastFulfilledTs))) / 1000 >= maxAge;
-          if (shouldRetrigger) {
-            dispatch(queryAction());
-          }
-        } else {
-          // If prefetching with no options, just let it try
-          dispatch(queryAction(false));
-        }
-      },
-      [endpointName, dispatch, options]
+      (arg: any, options: PrefetchOptions = { force: false, ifOlderThan: false }) =>
+        dispatch(prefetchThunk(endpointName, arg, { ...stableDefaultOptions, ...options })),
+      [endpointName, dispatch, stableDefaultOptions]
     );
   }
 
